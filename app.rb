@@ -19,8 +19,6 @@ end
 class Holiday < ActiveRecord::Base
 end
 
-WARNINGS = 3
-
 before do
   @res = Holiday.all
   if @res.count == 0
