@@ -77,8 +77,7 @@ def addHoliday(name, start_date, end_date=NIL)
     @holidays[name] = []
   end
 
-  Date.parse(start_date).upto(Date.parse(end_date)) do |date|
-    puts 'adding ' + date.strftime('%d-%m-%Y')
+  Date.parse(start_date).upto(Date.parse(end_date)) do |date|    
     if !@holidays[name].include? date.strftime('%d-%m-%Y')
       @holidays[name] << date.strftime('%d-%m-%Y')
     end
@@ -89,7 +88,8 @@ def showUsage
   res = {}
   res['title'] = 'Holidays'
   res['text'] = '*USAGE*\nTo view the upcoming holidays calendar just type /holidays\n
-  To add a date to the calendar type /holidays [@name] [dd-mm-yyyy]   E.G. /holidays @john 25-12-2016\n'
+  To add a date to the calendar type /holidays [@name] [dd-mm-yyyy]   E.G. /holidays @john 25-12-2016\n
+  To add a rangeof dates type /holidays [@name] [dd-mm-yyyy] to [dd-mm-yyyy]   E.G. /holidays @john 22-12-2015 to 03-01-2016\n'
   halt 200, {'Content-Type' => 'application/json'}, res.to_json
 end
 
