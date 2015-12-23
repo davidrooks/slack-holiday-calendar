@@ -30,36 +30,42 @@ before do
   end
 
   @holidays = eval(@res[:json])
-
-end
-
-post '/test' do
-  params = eval(request.body.read)
-  halt 200, 'Holidays = ' + @holidays
 end
 
 get '/test' do
-  halt 200, 'Holidays = ' + @holidays
+  halt 200, @holidays.to_s
 end
 
 
 post '/' do
   if params['text']
-    puts 'found text param'
     commands = params['text'].split
-    if commands.size != 0
-      if @holidays.has_key? commands[0]
-        if !@holidays[commands[0]].include? commands[1]
-          @holidays[commands[0]] << commands[1]
-        end
-      else
-        @holidays[commands[0]] = []
-        @holidays[commands[0]] << commands[1]
-      end
+    if commands.size == 2
+      slack_name = commands[0]
+      holiday_date = commands[1]
+      # if !name.start_with? '@'
+      #   showUsage
+      # end
+      # if !
+      addHoliday(slack_name.to_sym, holiday_date)
     end
   end
 
   showHolidays
+end
+
+def addHoliday(name, date) 
+  puts @holidays.to_s
+  if @holidays.has_key? name
+    puts 'key exists'
+    if !@holidays[name].include? date
+      @holidays[name] << date
+    end
+  else
+    puts 'new key'
+    @holidays[name] = []
+    @holidays[name] << date
+  end
 end
 
 def showHolidays
@@ -85,7 +91,7 @@ def checkDate(date)
   ret = ''
   @holidays.keys.each do |name|
     if (@holidays[name].include? date.to_s) then
-      ret =  name.to_s + ' '
+      ret =  ret + name.to_s + ' '
     end
   end
   if ret == ''
@@ -96,6 +102,7 @@ end
 
 
 after do
+  @holidays.each {|k,v| @holidays[k] = v.reject{|x| Date.strptime(x,'%d-%m-%Y')<Date.today}}
   @res[:json] = @holidays.to_json
   @res.save
 end
