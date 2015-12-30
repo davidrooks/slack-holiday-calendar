@@ -1,0 +1,7 @@
+applications:
+- name: slack-holidays
+  memory: 128M
+  stack: cflinuxfs2
+  instances: 1
+  buildpack: https://github.com/cloudfoundry/ruby-buildpack.git
+  command: bundle exec ruby app.rb -p $PORT
