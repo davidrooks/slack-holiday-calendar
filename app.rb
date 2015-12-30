@@ -39,51 +39,43 @@ post '/' do
   if params['text']
     commands = params['text'].split
     if commands.size >= 3
+      command = commands[0].upcase
       slack_name = commands[1]
       holiday_date = commands[2]
-      if !slack_name.start_with? '@'
-        showUsage
-      end
-      begin
-        Date.parse(holiday_date)
-      rescue ArgumentError
-        showUsage
+      
+      
+      if commands.size == 3 
+        if command == 'ADD'
+          addHoliday(slack_name.to_sym, holiday_date)        
+        elsif command == 'REMOVE'
+          deleteHoliday(slack_name.to_sym, holiday_date)        
+        end            
       end
 
-      if commands[0].upcase == 'ADD'
-        if commands.size == 3 
-          addHoliday(slack_name.to_sym, holiday_date)        
-        end
-        if commands.size == 5 && commands[3].upcase == 'TO'
-          holiday_date_end = commands[3]
-          begin
-            Date.parse(holiday_date_end)
-          rescue ArgumentError
-            showUsage
-          end
+      if commands.size == 5 && commands[3].upcase == 'TO'
+        holiday_date_end = commands[4]
+        validateParams slack_name, holiday_date, holiday_date_end
+        if command == 'ADD'
           addHoliday(slack_name.to_sym, holiday_date, holiday_date_end)
-        end
-      elsif commands[0].upcase == 'REMOVE'        
-        if commands.size == 3 
-          deleteHoliday(slack_name.to_sym, holiday_date)        
-        end
-        if commands.size == 5 && commands[3].upcase == 'TO'
-          holiday_date_end = commands[3]
-          begin
-            Date.parse(holiday_date_end)
-          rescue ArgumentError
-            showUsage
-          end
+        elsif command == 'REMOVE'
           deleteHoliday(slack_name.to_sym, holiday_date, holiday_date_end)
         end
-      end
+      end      
     end
   end
-
   showHolidays
 end
 
-def validateParams()
+def validateParams(slack_name, start_date, end_date=NIL)
+  if !slack_name.start_with? '@'
+    showUsage
+  end
+  begin
+    Date.parse(start_date)
+    Date.parse(end_date) unless end_date.nil?
+  rescue ArgumentError
+    showUsage
+  end
 end
 
 
