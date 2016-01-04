@@ -7,7 +7,6 @@ env = ENV['ENVIRONMENT'] || 'DEVELOP'
 
 set :database, {adapter: "sqlite3", database: "holiday_calendar.sqlite3"}
 
-
 ActiveRecord::Schema.define do
   if !ActiveRecord::Base.connection.tables.include? 'holidays'
     create_table :holidays do |t|
@@ -114,8 +113,6 @@ def showHolidays
   end
   res["title"] = "Holidays"
   res['attachments'] = []
-  
-
 
   Date.today.upto(Date.today+14.days) do |date|
     tmp = {}
