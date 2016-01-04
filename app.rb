@@ -30,40 +30,28 @@ before do
   @holidays = eval(@res[:json])
 end
 
-get '/test' do
-  halt 200, @holidays.to_s
+post '/' do
+  showHolidays
 end
 
+post '/add' do
+  slack_name = params['name']
+  holiday_date = params['start_date']
+  params['end_date'].nil? ? holiday_date_end = NIL : holiday_date_end = params['end_date']
 
-post '/' do
-  if params['text']
-    commands = params['text'].split
-    if commands.size >= 3
-      command = commands[0].upcase
-      slack_name = commands[1]
-      holiday_date = commands[2]
-      
-      
-      if commands.size == 3 
-        if command == 'ADD'
-          addHoliday(slack_name.to_sym, holiday_date)        
-        elsif command == 'REMOVE'
-          deleteHoliday(slack_name.to_sym, holiday_date)        
-        end            
-      end
+  validateParams slack_name, holiday_date, holiday_date_end
 
-      if commands.size == 5 && commands[3].upcase == 'TO'
-        holiday_date_end = commands[4]
-        validateParams slack_name, holiday_date, holiday_date_end
-        if command == 'ADD'
-          addHoliday(slack_name.to_sym, holiday_date, holiday_date_end)
-        elsif command == 'REMOVE'
-          deleteHoliday(slack_name.to_sym, holiday_date, holiday_date_end)
-        end
-      end      
-    end
-  end
-  showHolidays
+  addHoliday(slack_name.to_sym, holiday_date, holiday_date_end)
+end
+
+post '/delete' do
+  slack_name = params['name']
+  holiday_date = params['start_date']
+  params['end_date'].nil? ? holiday_date_end = NIL : holiday_date_end = params['end_date']
+
+  validateParams slack_name, holiday_date, holiday_date_end
+
+  deleteHoliday(slack_name.to_sym, holiday_date, holiday_date_end)
 end
 
 def validateParams(slack_name, start_date, end_date=NIL)
