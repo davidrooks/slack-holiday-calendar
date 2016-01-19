@@ -1,8 +1,5 @@
 source 'https://rubygems.org'
+ruby '2.2.3'
 
 gem 'sinatra'
-gem 'activerecord'
-gem 'activesupport'
-gem 'sinatra-activerecord'
-gem 'sqlite3'
-
+gem 'rest-client'

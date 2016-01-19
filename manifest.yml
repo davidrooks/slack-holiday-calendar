@@ -4,4 +4,4 @@ applications:
   stack: cflinuxfs2
   instances: 1
   buildpack: https://github.com/cloudfoundry/ruby-buildpack.git
-  command: bundle exec ruby app.rb -p $PORT
+  command: bundle exec rackup -p $PORT
