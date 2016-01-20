@@ -2,4 +2,4 @@ source 'https://rubygems.org'
 ruby '2.2.3'
 
 gem 'sinatra'
-gem 'rest-client'
+gem 'google-api-client'

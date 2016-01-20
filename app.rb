@@ -1,105 +1,35 @@
 require 'sinatra/base'
 require 'json'
 require 'date'
-require 'rest-client'
+# require 'rest-client'
+require 'google/apis/calendar_v3'
+require 'googleauth'
+require 'googleauth/stores/file_token_store'
+require 'openssl'
+require 'fileutils'
 
 class App < Sinatra::Base
 
   JSON_API = 'https://api.myjson.com/bins/4apkb'
+  OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
+  OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
+  APPLICATION_NAME = 'Google Calendar API Ruby Quickstart'
+  CLIENT_SECRETS_PATH = 'client_secret.json'
+  CREDENTIALS_PATH = File.join(Dir.home, '.credentials',
+                               "calendar-ruby-quickstart.yaml")
+  SCOPE = Google::Apis::CalendarV3::AUTH_CALENDAR_READONLY
 
-  configure :production, :development do
-    enable :logging
-    if ENV['VCAP_SERVICES']
-      vcap = "http://#{ENV['WEB_PROXY_USER']}:#{ENV['WEB_PROXY_PASS']}@#{ENV['WEB_PROXY_HOST']}:#{ENV['WEB_PROXY_PORT']}"
-      RestClient.proxy = vcap
-    end
-  end
+  # configure :production, :development do
+  #   if ENV['VCAP_SERVICES']
+  #     vcap = "http://#{ENV['WEB_PROXY_USER']}:#{ENV['WEB_PROXY_PASS']}@#{ENV['WEB_PROXY_HOST']}:#{ENV['WEB_PROXY_PORT']}"
+  #     RestClient.proxy = vcap
+  #   end
+  # end
 
-  before do
-    next unless request.post?
-    res = JSON.parse(RestClient.get JSON_API, {:accept => :json})
-
-    @holidays = res.to_hash
-  end
 
   post '/' do
+    getHolidays
     showHolidays
-  end
-
-  post '/add' do
-    slack_name = params['name']
-    holiday_date = params['start_date']
-    params['end_date'].nil? ? holiday_date_end = NIL : holiday_date_end = params['end_date']
-
-    validateParams slack_name, holiday_date, holiday_date_end
-
-    addHoliday(slack_name.to_sym, holiday_date, holiday_date_end)
-  end
-
-  post '/delete' do
-    slack_name = params['name']
-    holiday_date = params['start_date']
-    params['end_date'].nil? ? holiday_date_end = NIL : holiday_date_end = params['end_date']
-
-    validateParams slack_name, holiday_date, holiday_date_end
-    puts 'deleting holiday'
-    deleteHoliday(slack_name.to_sym, holiday_date, holiday_date_end)
-  end
-
-  def validateParams(slack_name, start_date, end_date=NIL)
-    if !slack_name.start_with? '@'
-      showUsage
-    end
-    begin
-      Date.parse(start_date)
-      Date.parse(end_date) unless end_date.nil?
-    rescue ArgumentError
-      showUsage
-    end
-  end
-
-
-  def addHoliday(name, start_date, end_date=NIL)
-    if end_date.nil?
-      end_date=start_date
-    end
-
-    if !@holidays.has_key? name
-      @holidays[name] = []
-    end
-
-    Date.parse(start_date).upto(Date.parse(end_date)) do |date|
-      if !@holidays[name].include? date.strftime('%d-%m-%Y')
-        @holidays[name] << date.strftime('%d-%m-%Y')
-      end
-    end
-  end
-
-  def deleteHoliday(name, start_date, end_date=NIL)
-    if end_date.nil?
-      end_date=start_date
-    end
-
-    puts @holidays.to_s
-    puts name
-    puts start_date
-    puts end_date
-    if @holidays.has_key? name.to_s
-      puts 'has key'
-      Date.parse(start_date).upto(Date.parse(end_date)) do |date|
-        puts 'deleting - ' + date.to_s
-        puts @holidays.to_s
-        @holidays[name.to_s].delete(date.strftime('%d-%m-%Y'))
-      end
-    end
-  end
-
-
-  def showUsage
-    res = {}
-    res['title'] = 'Holidays'
-    res['text'] = '*USAGE*\nTo view the upcoming holidays calendar just type /holidays'
-    halt 200, {'Content-Type' => 'application/json'}, res.to_json
   end
 
   def showHolidays
@@ -128,6 +58,63 @@ class App < Sinatra::Base
     halt 200, {'Content-Type' => 'application/json'}, res.to_json
   end
 
+  def getHolidays
+    service = Google::Apis::CalendarV3::CalendarService.new
+    service.client_options.application_name = APPLICATION_NAME
+    service.authorization = authorize
+
+# Fetch the next 10 events for the user
+    calendar_id = 'primary'
+    response = service.list_events(calendar_id,
+                                   max_results: 10,
+                                   single_events: true,
+                                   order_by: 'startTime',
+                                   time_min: Time.now.iso8601)
+
+    puts "Upcoming events:"
+    puts "No upcoming events found" if response.items.empty?
+    @holidays = {}
+    response.items.each do |event|
+      start_date = event.start.date
+      end_date = event.end.date
+      puts "- #{event.summary} (#{start_date}) - (#{end_date})"
+
+      if !@holidays.has_key? event.summary
+        @holidays[event.summary] = []
+      end
+
+      Date.parse(start_date).upto(Date.parse(end_date)) do |date|
+        if !@holidays[event.summary].include? date.strftime('%d-%m-%Y')
+          @holidays[event.summary] << date.strftime('%d-%m-%Y')
+        end
+      end
+    end
+  end
+
+  def authorize
+    FileUtils.mkdir_p(File.dirname(CREDENTIALS_PATH))
+
+    client_id = Google::Auth::ClientId.from_file(CLIENT_SECRETS_PATH)
+    token_store = Google::Auth::Stores::FileTokenStore.new(file: CREDENTIALS_PATH)
+    authorizer = Google::Auth::UserAuthorizer.new(
+        client_id, SCOPE, token_store)
+    user_id = 'default'
+    credentials = authorizer.get_credentials(user_id)
+    if credentials.nil?
+      url = authorizer.get_authorization_url(
+          base_url: OOB_URI)
+      puts "Open the following URL in the browser and enter the " +
+               "resulting code after authorization"
+      puts url
+      code = gets
+      credentials = authorizer.get_and_store_credentials_from_code(
+          user_id: user_id, code: code, base_url: OOB_URI)
+    end
+    credentials
+  end
+
+
+
   def checkDate(date)
     ret = ''
     @holidays.keys.each do |name|
@@ -139,14 +126,6 @@ class App < Sinatra::Base
       ret = 'none booked'
     end
     return ret
-  end
-
-
-  after do
-    next unless request.post?
-
-    @holidays.each {|k,v| @holidays[k] = v.reject{|x| Date.parse(x) < Date.today}}
-    RestClient.put JSON_API, @holidays.to_json, :content_type => 'application/json'
   end
 
 end
